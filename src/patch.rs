@@ -20,23 +20,83 @@ impl<'a> Patch<'a> {
     pub fn splice(&'a mut self, start: &Point, old_extent: &Point, new_extent: &Point, old_text: &str, new_text: &str) {
         if old_extent.is_zero() && new_extent.is_zero() { return; }
 
-        let output_old_end = start.traverse(old_extent);
-        let output_new_end = start.traverse(new_extent);
+        let old_end = start.traverse(old_extent);
+        let new_end = start.traverse(new_extent);
 
-        let cursor = Cursor::new(&mut self.root);
-        let start_node = cursor.insert_splice_boundary(start, None);
-        start_node.is_change_start = true;
-        self.splay_node(start_node);
+        let lower_bound = self.find_lower_bound(start).map(|node| self.splay_node(node));
+        let upper_bound = self.find_upper_bound(&old_end).map(|node| self.splay_node(node));
 
-        let end_node = cursor.insert_splice_boundary(&output_old_end, Some(start_node));
-        end_node.is_change_end = true;
-        self.splay_node(end_node);
-        if end_node.left_child.is_some() && start_node == end_node.left_child.unwrap() {
-            self.rotate_node_right(start_node)
-        }
     }
 
-    fn splay_node(&'a mut self, node: Rc<Node>) {
+    fn find_lower_bound(&self, target: &Point) -> Option<Rc<Node>> {
+        self.root.and_then(|root| {
+            let mut left_ancestor_end = Point::zero();
+            let mut max_lower_bound: Option<Rc<Node>> = None;
+            let mut current_node = root;
+
+            loop {
+                let current_node_start = left_ancestor_end.traverse(&current_node.new_distance_from_left_ancestor);
+                if target < &current_node_start {
+                    match current_node.left_child {
+                        Some(left_child) => {
+                            current_node = left_child;
+                        },
+                        None => {
+                            return max_lower_bound;
+                        }
+                    }
+                } else {
+                    max_lower_bound = Some(current_node);
+                    match current_node.right_child {
+                        Some(right_child) => {
+                            current_node = right_child;
+                            left_ancestor_end = current_node_start.traverse(&current_node.new_extent);
+                        },
+                        None => {
+                            return max_lower_bound;
+                        }
+                    }
+                }
+            }
+        })
+    }
+
+    fn find_upper_bound(&self, target: &Point) -> Option<Rc<Node>> {
+        self.root.and_then(|root| {
+            let mut left_ancestor_end = Point::zero();
+            let mut min_upper_bound: Option<Rc<Node>> = None;
+            let mut current_node = root;
+
+            loop {
+                let current_node_end = left_ancestor_end
+                    .traverse(&current_node.new_distance_from_left_ancestor)
+                    .traverse(&current_node.new_extent);
+                if target < &current_node_end {
+                    min_upper_bound = Some(current_node);
+                    match current_node.left_child {
+                        Some(left_child) => {
+                            current_node = left_child;
+                        },
+                        None => {
+                            return min_upper_bound;
+                        }
+                    }
+                } else {
+                    match current_node.right_child {
+                        Some(right_child) => {
+                            current_node = right_child;
+                            left_ancestor_end = current_node_end
+                        },
+                        None => {
+                            return min_upper_bound;
+                        }
+                    }
+                }
+            }
+        })
+    }
+
+    fn splay_node(&'a mut self, node: Rc<Node>) -> Rc<Node> {
 
     }
 
@@ -52,12 +112,10 @@ pub struct Node<'a> {
     parent: Option<Weak<Node<'a>>>,
     left_child: Option<Rc<Node<'a>>>,
     right_child: Option<Rc<Node<'a>>>,
-    is_change_start: bool,
-    is_change_end: bool,
-    input_left_extent: Point,
-    output_left_extent: Point,
-    input_extent: Point,
-    output_extent: Point,
+    old_distance_from_left_ancestor: Point,
+    new_distance_from_left_ancestor: Point,
+    old_extent: Point,
+    new_extent: Point,
     new_text: &'a str,
     old_text: &'a str
 }
@@ -109,8 +167,5 @@ impl<'a> Cursor<'a> {
             right_ancestor_input_position_stack: vec![],
             right_ancestor_output_position_stack: vec![]
         }
-    }
-
-    fn insert_splice_boundary(&self, point: &Point, start_node: Option<Rc<Node<'a>>>) -> Rc<Node<'a>> {
     }
 }
