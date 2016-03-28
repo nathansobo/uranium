@@ -126,46 +126,28 @@ impl<'a> PartialEq for Node<'a> {
     }
 }
 
-struct Cursor<'a> {
-    current_node: &'a mut Option<Rc<Node<'a>>>,
-    input_start: Point,
-    output_start: Point,
+impl<'a> Node<'a> {
+    pub fn is_left_child(&self) -> bool {
+        self.get_parent()
+            .and_then(|parent| {
+                parent.left_child.map(|parent_left_child| {
+                    self == &*parent_left_child
+                })
+            })
+            .unwrap_or(false)
+    }
 
-    left_ancestor: Option<&'a Node<'a>>,
-    left_ancestor_input_position: Option<Point>,
-    left_ancestor_output_position: Option<Point>,
-    left_ancestor_stack: Vec<&'a Node<'a>>,
-    left_ancestor_input_position_stack: Vec<Point>,
-    left_ancestor_output_position_stack: Vec<Point>,
+    pub fn is_right_child(&self) -> bool {
+        self.get_parent()
+            .and_then(|parent| {
+                parent.right_child.map(|parent_right_child| {
+                    self == &*parent_right_child
+                })
+            })
+            .unwrap_or(false)
+    }
 
-    right_ancestor: Option<&'a Node<'a>>,
-    right_ancestor_input_position: Option<Point>,
-    right_ancestor_output_position: Option<Point>,
-    right_ancestor_stack: Vec<&'a Node<'a>>,
-    right_ancestor_input_position_stack: Vec<Point>,
-    right_ancestor_output_position_stack: Vec<Point>
-}
-
-impl<'a> Cursor<'a> {
-    fn new(current_node: &'a mut Option<Rc<Node<'a>>>) -> Cursor<'a> {
-        Cursor {
-            current_node: current_node,
-            input_start: Point::zero(),
-            output_start: Point::zero(),
-
-            left_ancestor: None,
-            left_ancestor_input_position: None,
-            left_ancestor_output_position: None,
-            left_ancestor_stack: vec![],
-            left_ancestor_input_position_stack: vec![],
-            left_ancestor_output_position_stack: vec![],
-
-            right_ancestor: None,
-            right_ancestor_input_position: None,
-            right_ancestor_output_position: None,
-            right_ancestor_stack: vec![],
-            right_ancestor_input_position_stack: vec![],
-            right_ancestor_output_position_stack: vec![]
-        }
+    pub fn get_parent(&self) -> Option<Rc<Node<'a>>> {
+        self.parent.and_then(|parent| { parent.upgrade() })
     }
 }
