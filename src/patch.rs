@@ -23,11 +23,8 @@ impl<'a> Patch<'a> {
         let old_end = start.traverse(old_extent);
         let new_end = start.traverse(new_extent);
 
-        let lower_bound = self.find_lower_bound(start);
-        lower_bound.map(|node| self.splay_node(node.clone()));
-
-        let upper_bound = self.find_upper_bound(&old_end);
-        upper_bound.map(|node| self.splay_node(node.clone()));
+        let lower_bound = self.find_lower_bound(&start).map(|node| self.splay_node(node.clone()));
+        let upper_bound = self.find_upper_bound(&old_end).map(|node| self.splay_node(node.clone()));
     }
 
     fn find_lower_bound(&self, target: &Point) -> Option<Rc<Node<'a>>> {
@@ -89,12 +86,36 @@ impl<'a> Patch<'a> {
     }
 
     fn splay_node(&mut self, node: Rc<Node>) {
+        loop {
+            let node = node.clone();
+            if node.is_parent_left_child() && node.is_right_child() {
+                self.rotate_node_left(Some(node.clone()));
+                self.rotate_node_right(Some(node.clone()));
+            } else if node.is_parent_right_child() && node.is_left_child() {
+                self.rotate_node_right(Some(node.clone()));
+                self.rotate_node_left(Some(node.clone()));
+            } else if node.is_parent_left_child() && node.is_left_child() {
+                self.rotate_node_right(node.get_parent());
+                self.rotate_node_right(Some(node));
+            } else if node.is_parent_right_child() && node.is_right_child() {
+                self.rotate_node_left(node.get_parent());
+                self.rotate_node_left(Some(node));
+            } else {
+                if node.is_left_child() {
+                    self.rotate_node_right(Some(node));
+                } else if node.is_right_child() {
+                    self.rotate_node_left(Some(node))
+                }
+
+                break
+            }
+        }
     }
 
-    fn rotate_node_right(&mut self, pivot: Rc<Node>) {
+    fn rotate_node_right(&mut self, pivot: Option<Rc<Node>>) {
     }
 
-    fn rotate_node_left(&mut self, pivot: Rc<Node>) {
+    fn rotate_node_left(&mut self, pivot: Option<Rc<Node>>) {
     }
 }
 
@@ -118,6 +139,14 @@ impl<'a> PartialEq for Node<'a> {
 }
 
 impl<'a> Node<'a> {
+    pub fn is_parent_left_child(&self) -> bool {
+        self.get_parent().map(|parent| parent.is_left_child()).unwrap_or(false)
+    }
+
+    pub fn is_parent_right_child(&self) -> bool {
+        self.get_parent().map(|parent| parent.is_right_child()).unwrap_or(false)
+    }
+
     pub fn is_left_child(&self) -> bool {
         self.get_parent().as_ref()
             .and_then(|parent| {
